@@ -4,6 +4,19 @@ Reproducible build and hardware test notes for printing without a label RFID tag
 
 This repository records an independent installation and test on macOS. The firmware patch and reverse engineering belong to the upstream authors. No firmware binaries or upstream source code are redistributed here.
 
+## Current status — October 21, 2026
+
+**Registration issues remain unresolved.** With the patched firmware, the original
+RFID-equipped roll prints at approximately twice the vertical scale. Restoring
+the stock motor ramp did not fix it. With the tag absent, scale is correct, but
+calibration advances approximately four to five labels and the first subsequent
+print can start about 9 mm late. Later prints have aligned correctly on this device.
+
+See [the investigation and diagnostic test plan](INVESTIGATION-2026-10-21.md)
+for source hashes, the stock-ramp method, static findings and untested diagnostic
+variants. A blank alignment print is not a verified workaround. Do not treat
+successful initial prints as evidence of reliable media-change calibration.
+
 ## Tested configuration
 
 | Item | Value |
@@ -22,7 +35,7 @@ This repository records an independent installation and test on macOS. The firmw
 
 - Stock firmware detected the paper and closed lid, but reported no RFID tag. Printing from NiimBlue failed with `Print error 20: WriteRfidFail`.
 - The density-controlled image was rebuilt from the original 6.19 image. The result matched the upstream binary byte for byte.
-- The upstream verifier passed its available checks: source identity, image size, coefficients, timing table, patch sites, branch targets, generated code bytes, allowed difference regions and output hashes. The optional Capstone disassembly check was **skipped** because Capstone was not installed.
+- The upstream verifier passed its available checks: source identity, image size, coefficients, timing table, patch sites, branch targets, generated code bytes, allowed difference regions and output hashes. The optional Capstone disassembly check was initially skipped. It was rerun with Capstone 5.0.6 on October 21 and passed; this is a patch-structure check, not full firmware verification.
 - There were **271 changed bytes**, all inside the verifier's allowed regions.
 - USB flashing completed with 622/622 chunks and a successful CLI exit. The printer shut down, then responded over USB after a manual power-on.
 - RFID remained absent. A single 384 x 240 dot D3 test image completed at 100% print and 100% feed. The operator confirmed a clear physical print.
@@ -31,7 +44,7 @@ This repository records an independent installation and test on macOS. The firmw
 
 ### What has not been established
 
-The test used original label paper separated from its RFID tag, **not a purchased third-party roll**. Long-run registration, every density setting, optical calibration after changing media, print-head lifetime and recovery after a failed flash were not tested. A successful single-device test is not a general safety guarantee.
+The test used original label paper separated from its RFID tag, **not a purchased third-party roll**. Long-run registration, every density setting, print-head lifetime and recovery after a failed flash were not established. Later media-change and calibration tests exposed the issues described above. A successful single-device test is not a general safety guarantee.
 
 ## Compatibility and recovery
 
