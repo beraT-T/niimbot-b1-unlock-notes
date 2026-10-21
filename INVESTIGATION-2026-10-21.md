@@ -1,5 +1,8 @@
 # B1 6.19 registration investigation — 2026-10-21
 
+> Historical snapshot: see [current results](RESULTS-2026-10-21.md) and the [README](README.md) for later tested variants. Candidate statuses below describe the earlier investigation.
+
+
 Status: unresolved. These observations concern one B1, HW 6.01 / FW 6.19.
 They do not establish compatibility with other printers or media.
 

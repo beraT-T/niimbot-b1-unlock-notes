@@ -1,157 +1,105 @@
-# niimbot-b1-unlock-notes
+# NIIMBOT B1 RFID-free printing notes
 
-Reproducible build and hardware test notes for printing without a label RFID tag on a **NIIMBOT B1, hardware 6.01 / firmware 6.19**, using the firmware patch by [lotabout](https://github.com/lotabout/niimbot), derived from [ThreeDaPrint's work](https://github.com/ThreeDaPrint/niimbot).
+Reproducible patches and device test notes for **NIIMBOT B1 hardware 6.01 / firmware 6.19**. Based on [lotabout's 6.19 port](https://github.com/lotabout/niimbot/tree/e3746375de3373c7a63810d2b3aac1e3d9087193), derived from [ThreeDaPrint](https://github.com/ThreeDaPrint/niimbot).
 
-This repository records an independent installation and test on macOS. The firmware patch and reverse engineering belong to the upstream authors. No firmware binaries or upstream source code are redistributed here.
+## Current result — October 21, 2026
 
-## Current status — October 21, 2026
+The operator reports that the latest variant prints without a label RFID tag **at the same apparent speed and contrast as tagged media**. Earlier variants printed tagless labels slowly and faintly, or stretched tagged output vertically. The final change prevents the density command handler from reselecting the fallback printing mode.
 
-**Registration issues remain unresolved.** With the patched firmware, the original
-RFID-equipped roll prints at approximately twice the vertical scale. Restoring
-the stock motor ramp did not fix it. With the tag absent, scale is correct, but
-calibration advances approximately four to five labels and the first subsequent
-print can start about 9 mm late. Later prints have aligned correctly on this device.
+This is a published experimental milestone, **not production-qualified firmware or a fully open-source printer firmware**. The proprietary base image is still required. No firmware binaries are distributed here. See [test results and patch details](RESULTS-2026-10-21.md).
 
-See [the investigation and diagnostic test plan](INVESTIGATION-2026-10-21.md)
-for source hashes, the stock-ramp method, static findings and untested diagnostic
-variants. A blank alignment print is not a verified workaround. Do not treat
-successful initial prints as evidence of reliable media-change calibration.
+## Scope and remaining limitations
 
-## Tested configuration
+- Tested on **one B1, HW 6.01 / FW 6.19**, with 50 x 30 mm gap labels at density 3. The paper was original label stock separated from its RFID tag; purchased third-party rolls have not been validated.
+- Speed and contrast matching are the operator's visual/audible comparison, not timed throughput or optical-density measurements. Exact dimensions on the final build and a separate post-final-patch tagged regression test have not been recorded.
+- **The first label after loading media can still be misaligned.** Subsequent labels aligned in earlier tests. Plan for a sacrificial first label and inspect alignment; this is not a validated automatic alignment procedure. Do not assume an 8-row blank page behaves identically to a full label.
+- Command `0x8e` calibration advanced four to five labels in tests. Its first subsequent print was offset approximately 6–9 mm. It is not a reliable one-label alignment command. Automatic first-label alignment remains unresolved.
+- Long runs, all density settings, other label dimensions, other B1 revisions, and thermal/print-head lifetime have not been established. Do not raise density automatically to compensate for a problem.
+- Earlier revisions were exercised through USB CLI and Chrome/NiimBlue over USB and Bluetooth. The final revision has not received a complete transport/application regression matrix.
 
-| Item | Value |
-|---|---|
-| Printer | NIIMBOT B1, model ID 4096 |
-| Hardware / firmware | 6.01 / 6.19 |
-| Print head | 384 dots, 203 dpi, approximately 48 mm printable width |
-| Media | 50 x 30 mm original labels, detached from the RFID-equipped roll |
-| Label type / density | Gap (1) / 3 |
-| Host | macOS; OS and Chrome versions were not recorded |
-| CLI | `@mmote/niimblue-node@1.4.1` |
-| Patch revision | `e3746375de3373c7a63810d2b3aac1e3d9087193` |
-| Test date | 2026-10-20 |
+## Risks and disclaimer
 
-## Results
+This is independent community research, unaffiliated with or endorsed by NIIMBOT. Firmware modification may damage the printer or print head, cause overheating or unusable output, affect warranty/support eligibility, or make recovery impossible. Use at your own risk; no compatibility, fitness, safety, or recovery guarantee is made. The MIT license includes warranty and liability disclaimers.
 
-- Stock firmware detected the paper and closed lid, but reported no RFID tag. Printing from NiimBlue failed with `Print error 20: WriteRfidFail`.
-- The density-controlled image was rebuilt from the original 6.19 image. The result matched the upstream binary byte for byte.
-- The upstream verifier passed its available checks: source identity, image size, coefficients, timing table, patch sites, branch targets, generated code bytes, allowed difference regions and output hashes. The optional Capstone disassembly check was initially skipped. It was rerun with Capstone 5.0.6 on October 21 and passed; this is a patch-structure check, not full firmware verification.
-- There were **271 changed bytes**, all inside the verifier's allowed regions.
-- USB flashing completed with 622/622 chunks and a successful CLI exit. The printer shut down, then responded over USB after a manual power-on.
-- RFID remained absent. A single 384 x 240 dot D3 test image completed at 100% print and 100% feed. The operator confirmed a clear physical print.
-- The operator also successfully printed without RFID from **Chrome / NiimBlue over Bluetooth and USB**.
-- A photo of three consecutive labels showed complete prints within the label boundaries. When the short strip ended, NiimBlue reported `Print error 8 (In_PrintStatus packet flag)`. NiimBlueLib calls code 8 `PaperOutException`; the timing is consistent with the strip running out, but does not independently prove the cause.
+The patch changes RFID handling and printing behavior. Restoring motor timing and some coefficients does **not** establish stock-equivalent heating: shared coefficients and density hooks remain modified. Hashes establish file identity, not physical safety. Stop testing if behavior is abnormal or the printer overheats.
 
-### What has not been established
+Use only the exact verified **6.19** source for **HW 6.01**. Never substitute a 4.x/5.x image. Keep the original image, but understand that a backup file cannot recover a device whose upgrade interface no longer works. Restoration to completely stock firmware has not been tested on this device. Respect applicable law and the rights/licenses of firmware and upstream authors.
 
-The test used original label paper separated from its RFID tag, **not a purchased third-party roll**. Long-run registration, every density setting, print-head lifetime and recovery after a failed flash were not established. Later media-change and calibration tests exposed the issues described above. A successful single-device test is not a general safety guarantee.
+## Reproduce the tested variant
 
-## Compatibility and recovery
-
-These instructions target **HW 6.01 / FW 6.19 only**. Check the printer's reported versions before selecting any image. Do not flash a 5.x image onto a 6.x device, or assume another B1 hardware revision is compatible.
-
-Keep the original firmware before flashing. If the printer still communicates through the upgrade protocol, it may be possible to restore that image. If boot or USB communication is damaged, having the file alone does not guarantee recovery. Reinstalling official firmware also removes the patch.
-
-The patch changes print energy and line timing as well as RFID error handling. File hashes and a reproducible build establish file identity, not electrical or thermal safety.
-
-## Reproduce the image
-
-Requirements: Git, curl, Python 3 and a separate working directory. Review the upstream scripts before running them. This step does not communicate with the printer.
+Requirements: Python 3, Git and curl. Run from this repository's root. Review scripts before execution. Building does not contact the printer.
 
 ```sh
 git clone https://github.com/lotabout/niimbot.git upstream
-cd upstream
-git checkout --detach e3746375de3373c7a63810d2b3aac1e3d9087193
+git -C upstream checkout --detach e3746375de3373c7a63810d2b3aac1e3d9087193
 mkdir -p local
 curl --fail --location https://fw.niim.blue/stable/B1/B1_6.19.bin \
   --output local/B1_6.19_stock.bin
-shasum -a 256 local/B1_6.19_stock.bin
-```
-
-The source SHA-256 must match the table below. Then:
-
-```sh
-python3 build/build_b1_619_density.py \
+python3 upstream/build/build_b1_619_density.py \
   --src local/B1_6.19_stock.bin --out local/B1_6.19_density_coeff.bin
-python3 repro/verify_b1_619_density.py \
+python3 upstream/repro/verify_b1_619_density.py \
   --src local/B1_6.19_stock.bin --img local/B1_6.19_density_coeff.bin
-cmp local/B1_6.19_density_coeff.bin firmware/B1_6.19_density_coeff.bin
-shasum -a 256 local/B1_6.19_density_coeff.bin
+python3 scripts/build_final.py \
+  --stock local/B1_6.19_stock.bin --density local/B1_6.19_density_coeff.bin \
+  --out local/B1_6.19_mode0_densitytest.bin
 ```
 
-Stop on a mismatch. Read the verifier output, including skipped checks; a zero exit status can still include a skipped optional check.
+Stop on any failure. The local builder rejects incorrect input size/hash, unexpected patch bytes, an incorrect output hash, and an existing output file. The upstream verifier has optional checks: inspect any `SKIP` lines. Its Capstone check passed during our October 21 review of the upstream density image; that check alone does not validate this final variant.
+
+All images are 124436 bytes:
 
 | Image | SHA-256 |
 |---|---|
-| Original 6.19 | `a4973f78ed4416df3c614d4a87c30df68daf30fe3cf7f9aa3987bc0944650b57` |
-| Rebuilt density patch | `12bd8e925b9de46b543bd2caf6b3bcc1b3bde294a80836996eeff8be8b9d5876` |
+| Stock 6.19 | `a4973f78ed4416df3c614d4a87c30df68daf30fe3cf7f9aa3987bc0944650b57` |
+| Upstream density | `12bd8e925b9de46b543bd2caf6b3bcc1b3bde294a80836996eeff8be8b9d5876` |
+| Latest operator-tested variant | `bdbe795844d700b07da4c249cd9bce81b1cb785349de2ec9abf528da16cfffe1` |
 
-Both files are 124436 bytes. The original image is obtained from the community-maintained [firmware collection](https://fw.niim.blue/stable/B1/), not read back from the device.
+The source is from the [community firmware collection](https://fw.niim.blue/stable/B1/), not a device readback or vendor-authenticated dump. The generated filename is retained to match the tested artifact; “densitytest” does not identify a vendor release.
 
-## USB installation on macOS
+## Installation and initial checks
 
-Use a USB data cable, sufficient battery charge and an uninterrupted connection. Disconnect other applications from the printer. Install the CLI in a dedicated directory:
-
-```sh
-mkdir -p ../niimblue-cli
-npm install --prefix ../niimblue-cli @mmote/niimblue-node@1.4.1
-node ../niimblue-cli/node_modules/@mmote/niimblue-node/cli.mjs scan -t serial
-```
-
-Set `NIIMBOT_PORT` to the actual B1 port returned by the scan; the path below is a placeholder. Inspect the model, hardware and firmware before proceeding.
+Disconnect browser/printer clients. Use a USB data cable, sufficient battery charge and an uninterrupted connection. Install the pinned CLI, scan, and inspect the printer before flashing:
 
 ```sh
+npm install --prefix local/cli @mmote/niimblue-node@1.4.1
+node local/cli/node_modules/@mmote/niimblue-node/cli.mjs scan -t serial
 NIIMBOT_PORT=/dev/cu.usbmodemYOUR_DEVICE
-node ../niimblue-cli/node_modules/@mmote/niimblue-node/cli.mjs info \
-  -t serial -a "$NIIMBOT_PORT"
+node local/cli/node_modules/@mmote/niimblue-node/cli.mjs info -t serial -a "$NIIMBOT_PORT"
 ```
 
-The following command **writes firmware**. Run it only after checking compatibility and the rebuilt file:
+Replace the placeholder port with the scanned B1 port. Confirm hardware 6.01 and firmware 6.19. The following command **writes firmware**:
 
 ```sh
-node ../niimblue-cli/node_modules/@mmote/niimblue-node/cli.mjs flash \
-  -t serial -a "$NIIMBOT_PORT" -n 6.19 -f local/B1_6.19_density_coeff.bin
+node local/cli/node_modules/@mmote/niimblue-node/cli.mjs flash \
+  -t serial -a "$NIIMBOT_PORT" -n 6.19 -f local/B1_6.19_mode0_densitytest.bin
 ```
 
-Wait for successful completion. The printer is expected to shut down. Turn it on manually, scan again if its port changed, and repeat `info`. The patched image still reports version 6.19; the version string alone cannot identify the patch.
+After successful completion the printer shuts down. Power it on manually and repeat `info`. In one test, USB reconnection was needed after negotiation timed out. All variants still report 6.19; the version string cannot identify the installed patch. Successful upload is not a flash readback verification.
 
-## Verify printing without RFID
-
-Keep the RFID-equipped roll away from the printer and load a sufficiently long strip of gap labels. Query the tag:
+Load gap labels, keep the RFID-equipped roll away and query:
 
 ```sh
-node ../niimblue-cli/node_modules/@mmote/niimblue-node/cli.mjs rfid \
-  -t serial -a "$NIIMBOT_PORT"
+node local/cli/node_modules/@mmote/niimblue-node/cli.mjs rfid -t serial -a "$NIIMBOT_PORT"
 ```
 
-Confirm `tagPresent: false`. With paper loaded, send one test:
+Confirm `tagPresent: false`. Start with one low-coverage test at density 3, 384 x 240 dots, direction `top`, B1 task, label type 1. Use a 20 mm square/ruler to check both axes and leading margins, then compare subsequent labels without opening the lid. Check actual paper output; 100% protocol completion can occur with a blank print. Check tagged media separately. In [NiimBlue](https://niim.blue/), use 50 x 30 mm gap media and account for the 384-dot (~48 mm) printable head width.
+
+If the upgrade interface still works, the corresponding stock restoration command is below. **This recovery has not been exercised**:
 
 ```sh
-node ../niimblue-cli/node_modules/@mmote/niimblue-node/cli.mjs print \
-  -t serial -a "$NIIMBOT_PORT" -p B1 -o top -l 1 -q 3 -n 1 \
-  -w 384 -h 240 -f contain test-labels/dtest_D3.png
-```
-
-Check the physical output as well as the CLI status. In [NiimBlue](https://niim.blue/), use a 50 x 30 mm label, gap media and density 3 as a starting point. Browser printing was confirmed over both Bluetooth and USB. For a new roll, check repeated identical labels for cumulative registration drift.
-
-## Restore the original image
-
-Restoration was **not exercised** in this test. If the printer remains accessible and accepts an upgrade, the corresponding command is:
-
-```sh
-node ../niimblue-cli/node_modules/@mmote/niimblue-node/cli.mjs flash \
+node local/cli/node_modules/@mmote/niimblue-node/cli.mjs flash \
   -t serial -a "$NIIMBOT_PORT" -n 6.19 -f local/B1_6.19_stock.bin
 ```
 
-## Credits and references
+## Attribution and license
 
-- [lotabout/niimbot](https://github.com/lotabout/niimbot/tree/e3746375de3373c7a63810d2b3aac1e3d9087193): 6.19 port, build scripts, verification and RFID bypass analysis.
-- [ThreeDaPrint/niimbot](https://github.com/ThreeDaPrint/niimbot): upstream 5.22 reverse engineering and density patch.
-- [MultiMote/niimbluelib](https://github.com/MultiMote/niimbluelib), [niimblue-node](https://github.com/MultiMote/niimblue-node) and [NiimBlue](https://github.com/MultiMote/niimblue): communication library, CLI and browser client.
-- [B1 community hardware notes](https://printers.niim.blue/hardware/niimbot-b1/).
+- [lotabout/niimbot](https://github.com/lotabout/niimbot/tree/e3746375de3373c7a63810d2b3aac1e3d9087193): upstream 6.19 port, RFID bypass, density hooks, build and verification tools.
+- [ThreeDaPrint/niimbot](https://github.com/ThreeDaPrint/niimbot): original upstream reverse engineering and density work.
+- [MultiMote/niimbluelib](https://github.com/MultiMote/niimbluelib), [niimblue-node](https://github.com/MultiMote/niimblue-node), and [NiimBlue](https://github.com/MultiMote/niimblue): transport, CLI and browser software.
+- This repository: additional device observations, patch isolation, reproduction script and documentation, developed with assistance from Claude and Codex. AI-generated analysis was checked where stated; do not treat hypotheses as measurements.
 
-Corrections and additional test reports are welcome. Include hardware/firmware versions, media type, transport and exact results. Remove device serial numbers, MAC addresses and RFID identifiers from public logs.
+Original documentation and code in this repository are MIT licensed; see [LICENSE](LICENSE). This does not license the vendor firmware or upstream code, which retain their own terms. This is not a claim of independent authorship of the upstream unlock.
 
-## License
+For additional reports, include hardware/firmware, image SHA-256, media, density, transport, dimensions and observed results. Remove serial numbers, MAC addresses, RFID identifiers and credentials from logs.
 
-The original documentation in this repository is licensed under MIT; see [LICENSE](LICENSE). This does not grant rights to the vendor firmware or upstream projects, which remain subject to their respective terms.
+Historical investigation: [October 21 initial analysis](INVESTIGATION-2026-10-21.md). Its earlier candidate status is superseded by the current results where explicitly noted.
